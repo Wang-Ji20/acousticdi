@@ -1,3 +1,5 @@
+pub mod recorder;
+
 /// To transmit data, we need to encode them to a byte array first.
 pub fn encode(data: &str) -> Vec<u8> {
     data.as_bytes().to_vec()
