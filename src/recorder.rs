@@ -22,10 +22,8 @@ impl Recorder {
     }
 
     /// Take `samples` of recordings, erasing them from the buffer
-    pub async fn take_owned(&mut self, num_samples: usize) -> Vec<f32> {
-        while self.ring_buffer.lock().unwrap().len() < num_samples {
-            tokio::time::sleep(Duration::from_millis(1)).await;
-        }
+    pub fn take_owned(&mut self, num_samples: usize) -> Vec<f32> {
+        while self.ring_buffer.lock().unwrap().len() < num_samples {}
         let samples = self
             .ring_buffer
             .lock()
