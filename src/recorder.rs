@@ -1,6 +1,5 @@
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::Sample;
@@ -12,6 +11,12 @@ type BufferHandle = Arc<Mutex<VecDeque<f32>>>;
 #[derive(Debug)]
 pub struct Recorder {
     ring_buffer: BufferHandle,
+}
+
+impl Default for Recorder {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Recorder {
@@ -39,6 +44,9 @@ impl Recorder {
 }
 
 /// start record and analysis routines.
+///
+/// NB: The returned `Stream` is RAII guarded, so the caller should not drop it until
+/// recording finishes.
 pub fn run_record(handle: BufferHandle) -> Result<cpal::Stream, anyhow::Error> {
     info!("run record.. preparing");
     let host = cpal::default_host();
