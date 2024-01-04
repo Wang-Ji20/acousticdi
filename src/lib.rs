@@ -128,11 +128,7 @@ fn modulate_byte(b: u8) -> Vec<f64> {
 
 
 fn demodulate_byte(signals: Vec<Vec<f32>>) -> u8 {
-    let mut demodulated_byte = 0_u8;
-    for i in 0..8 {
-        demodulated_byte |= demodulate_bit(signals[i].clone()) << i;
-    }
-    demodulated_byte
+    todo!();
 }
 
 fn demodulate_vector(signals: Vec<f32>) -> Vec<u8> {
@@ -191,7 +187,7 @@ fn test_output_wav() {
 }
 
 use hound::{WavReader, WavWriter};
-use physics::{modulate_bit, demodulate_bit};
+use physics::modulate_bit;
 /// read the sound wave from a wav file
 pub fn input_wav(filename: &str) -> Vec<f64> {
     let mut reader = WavReader::open(filename).unwrap();
