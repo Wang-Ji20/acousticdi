@@ -106,9 +106,8 @@ fn pack_unseal_test() {
     assert_eq!(data, decode(&unpacked));
 }
 
-use std::{fs::File, io::BufWriter, sync::Mutex};
-
-use dasp::{signal, Signal};
+use std::{fs::File, io::BufWriter};
+pub mod physics;
 
 /// Generate sound wave to carry the information.
 /// For first version, I will just use BPSK modulation.
@@ -126,43 +125,7 @@ fn modulate_byte(b: u8) -> Vec<f64> {
         .collect()
 }
 
-use once_cell::sync::Lazy;
 
-static ZERO_SIGNAL: Lazy<Mutex<Vec<f64>>> = Lazy::new(|| {
-    Mutex::new(
-        signal::rate(SAMPLE_RATE)
-            .const_hz(CARRIER_FREQ)
-            .phase()
-            .sine()
-            .take((SAMPLE_RATE * SIGNAL_TIME) as usize)
-            .collect::<Vec<f64>>(),
-    )
-});
-
-fn modulate_bit(b: u8) -> Vec<f64> {
-    match b {
-        0 => ZERO_SIGNAL.lock().unwrap().clone(),
-        1 => ZERO_SIGNAL
-            .lock()
-            .unwrap()
-            .iter()
-            .map(|x| -x)
-            .collect::<Vec<f64>>(),
-        _ => panic!("only 0 and 1 are allowed"),
-    }
-}
-
-pub fn demodulate_bit(fs: Vec<f32>) -> u8 {
-    let b: f64 = fs
-        .into_iter()
-        .zip(ZERO_SIGNAL.lock().unwrap().clone())
-        .map(|(x, y)| x as f64 + y)
-        .sum();
-    match b > 5.0 {
-        true => 1,
-        false => 0,
-    }
-}
 
 fn demodulate_byte(signals: Vec<Vec<f32>>) -> u8 {
     let mut demodulated_byte = 0_u8;
@@ -219,9 +182,6 @@ pub fn add_preamble(writer: &mut WavWriter<BufWriter<File>>) {
     }
 }
 
-fn correlation(v1: Vec<f32>, v2: Vec<f32>) -> Vec<f32> {
-    todo!()
-}
 
 #[test]
 fn test_output_wav() {
@@ -231,6 +191,7 @@ fn test_output_wav() {
 }
 
 use hound::{WavReader, WavWriter};
+use physics::{modulate_bit, demodulate_bit};
 /// read the sound wave from a wav file
 pub fn input_wav(filename: &str) -> Vec<f64> {
     let mut reader = WavReader::open(filename).unwrap();

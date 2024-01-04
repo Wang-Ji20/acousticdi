@@ -1,6 +1,6 @@
 use acousticdi::{
     recorder::{run_record, Recorder},
-    PREAMBLE, SIGNAL_TIME, SAMPLE_RATE, demodulate_bit,
+    PREAMBLE, SIGNAL_TIME, SAMPLE_RATE, physics::demodulate_bit,
 };
 use tracing::info;
 
