@@ -1,12 +1,16 @@
-use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
+use std::thread::sleep;
+use std::time::Duration;
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::Sample;
+use cpal::{Sample, SampleRate};
 use dasp::sample::ToSample;
 use tracing::{error, info};
 
-type BufferHandle = Arc<Mutex<VecDeque<f32>>>;
+use crate::output_wav;
+use crate::transmission::SampleReader;
+
+type BufferHandle = Arc<Mutex<Vec<f32>>>;
 
 #[derive(Debug)]
 pub struct Recorder {
@@ -22,24 +26,47 @@ impl Default for Recorder {
 impl Recorder {
     pub fn new() -> Recorder {
         Recorder {
-            ring_buffer: Arc::new(Mutex::new(VecDeque::new())),
+            ring_buffer: Arc::new(Mutex::new(Vec::new())),
         }
-    }
-
-    /// Take `samples` of recordings, erasing them from the buffer
-    pub fn take_owned(&mut self, num_samples: usize) -> Vec<f32> {
-        while self.ring_buffer.lock().unwrap().len() < num_samples {}
-        let samples = self
-            .ring_buffer
-            .lock()
-            .unwrap()
-            .drain(0..num_samples)
-            .collect();
-        samples
     }
 
     pub fn clone_handle(&mut self) -> BufferHandle {
         self.ring_buffer.clone()
+    }
+
+    pub fn take_samples(&mut self, start: usize, end: usize) -> Vec<f64> {
+        while self.ring_buffer.lock().unwrap().len() < end {}
+        let ring_buffer = self.ring_buffer.lock().unwrap();
+        ring_buffer[start..end].iter().map(|f| *f as f64).collect()
+    }
+
+    pub fn save_to_wav(&mut self) {
+        output_wav(
+            &self
+                .ring_buffer
+                .lock()
+                .unwrap()
+                .clone()
+                .iter()
+                .map(|f| *f as f64)
+                .collect::<Vec<f64>>(),
+            "recorder.wav",
+        )
+    }
+}
+
+#[test]
+fn test_recorder() {
+    let _ = tracing_subscriber::fmt::try_init();
+    let mut recorder = Recorder::new();
+    let _stream = run_record(recorder.clone_handle()).unwrap();
+    sleep(Duration::from_secs(3));
+    recorder.save_to_wav();
+}
+
+impl SampleReader for Recorder {
+    fn take_samples(&mut self, start: usize, end: usize) -> Vec<f64> {
+        self.take_samples(start, end)
     }
 }
 
@@ -58,10 +85,19 @@ pub fn run_record(handle: BufferHandle) -> Result<cpal::Stream, anyhow::Error> {
 
     info!("Input device: {}", device.name()?);
 
-    let config = device
-        .default_input_config()
+    let configs = device
+        .supported_input_configs()
         .expect("Failed to get default input config");
-    info!("Default input config: {:?}", config);
+
+    let mut config = device.default_input_config().unwrap();
+
+    for cfg in configs {
+        if cfg.channels() == 1 {
+            config = cfg.with_sample_rate(SampleRate(44100));
+        }
+    }
+
+    println!("config: {:?}", config);
 
     let err_fn = move |err| {
         error!("an error occurred on stream: {}", err);

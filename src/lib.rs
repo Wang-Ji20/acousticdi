@@ -2,14 +2,6 @@ pub mod recorder;
 
 const TEST_DATA: &str = "WHAT is truth? said jesting Pilate and would not stay for an answer. Certainly there be that delight";
 
-pub const SAMPLE_RATE: f64 = 44100.0;
-
-pub const CARRIER_FREQ: f64 = 441.0;
-
-pub const SIGNAL_TIME: f64 = 0.05;
-
-pub const PREAMBLE: f32 = 3.0;
-
 /// To transmit data, we need to encode them to a byte array first.
 pub fn encode(data: &str) -> Vec<u8> {
     data.as_bytes().to_vec()
@@ -108,6 +100,7 @@ fn pack_unseal_test() {
 
 use std::{fs::File, io::BufWriter};
 pub mod physics;
+pub mod transmission;
 
 /// Generate sound wave to carry the information.
 /// For first version, I will just use BPSK modulation.
@@ -121,31 +114,7 @@ fn modulate_vector(p: Vec<u8>) -> Vec<f64> {
 
 fn modulate_byte(b: u8) -> Vec<f64> {
     (0..8)
-        .flat_map(|i| modulate_bit(b & (1 << i) >> i))
-        .collect()
-}
-
-
-
-fn demodulate_byte(signals: Vec<Vec<f32>>) -> u8 {
-    todo!();
-}
-
-fn demodulate_vector(signals: Vec<f32>) -> Vec<u8> {
-    let sample_num = (SAMPLE_RATE * SIGNAL_TIME) as usize;
-    let chucks = signals
-        .chunks(sample_num * 8)
-        .map(|chuck| {
-            chuck
-                .to_owned()
-                .chunks(sample_num)
-                .map(|c| c.to_vec())
-                .collect::<Vec<Vec<f32>>>()
-        })
-        .collect::<Vec<Vec<Vec<f32>>>>();
-    chucks
-        .iter()
-        .map(|x| demodulate_byte(x.to_owned()))
+        .flat_map(|i| modulate_half_byte(b & (1 << i) >> i))
         .collect()
 }
 
@@ -165,19 +134,11 @@ pub fn output_wav(modulated: &[f64], filename: &str) {
         sample_format: hound::SampleFormat::Float,
     };
     let mut writer = hound::WavWriter::create(filename, spec).unwrap();
-    add_preamble(&mut writer);
     for sample in modulated {
         writer.write_sample(*sample as f32).unwrap();
     }
     writer.finalize().unwrap();
 }
-
-pub fn add_preamble(writer: &mut WavWriter<BufWriter<File>>) {
-    for _ in 1..4410 {
-        writer.write_sample(PREAMBLE).unwrap()
-    }
-}
-
 
 #[test]
 fn test_output_wav() {
@@ -186,8 +147,8 @@ fn test_output_wav() {
     output_wav(&modulated, "test.wav");
 }
 
-use hound::{WavReader, WavWriter};
-use physics::modulate_bit;
+use hound::WavReader;
+use physics::modulate_half_byte;
 /// read the sound wave from a wav file
 pub fn input_wav(filename: &str) -> Vec<f64> {
     let mut reader = WavReader::open(filename).unwrap();
